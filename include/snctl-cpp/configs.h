@@ -31,6 +31,7 @@ struct KafkaConfigs {
   int fetch_message_max_bytes = 50 * 1024 * 1024;
   int fetch_max_bytes = 50 * 1024 * 1024;
   std::string isolation_level = "read_uncommitted";
+  bool enable_idempotence = false;
 };
 
 struct LogConfigs {
@@ -63,6 +64,8 @@ public:
         .scan<'i', int>();
     update_command_.add_argument("--kafka-isolation-level")
         .help("The Kafka isolation.level");
+    update_command_.add_argument("--kafka-enable-idempotence")
+        .help("The Kafka enable.idempotence (true or false)");
     update_command_.add_argument("--log-debug")
         .help("Comma-separated librdkafka debug contexts");
     update_command_.add_argument("--log-level")
@@ -172,6 +175,21 @@ public:
           std::cout << "Updated isolation.level to " << value << std::endl;
         } else {
           std::cout << "The provided isolation.level is the same with the "
+                       "config in "
+                    << config_file_ << std::endl;
+        }
+      }
+      if (update_command_.present("--kafka-enable-idempotence")) {
+        auto value =
+            parse_bool(update_command_.get("--kafka-enable-idempotence"),
+                       "The Kafka enable.idempotence must be true or false");
+        if (value != kafka_configs_.enable_idempotence) {
+          kafka_configs_.enable_idempotence = value;
+          updated = true;
+          std::cout << "Updated enable.idempotence to "
+                    << (value ? "true" : "false") << std::endl;
+        } else {
+          std::cout << "The provided enable.idempotence is the same with the "
                        "config in "
                     << config_file_ << std::endl;
         }
@@ -304,6 +322,17 @@ private:
                   << kafka_configs_.isolation_level << std::endl;
       }
     }
+    if (auto value = get_value("kafka", "enable.idempotence"); value) {
+      try {
+        kafka_configs_.enable_idempotence = parse_bool(
+            *value, "The Kafka enable.idempotence must be true or false");
+      } catch (const std::exception &) {
+        std::cerr << "Invalid kafka.enable.idempotence '" << *value
+                  << "'. Use the default value: "
+                  << (kafka_configs_.enable_idempotence ? "true" : "false")
+                  << std::endl;
+      }
+    }
     if (auto value = get_value("log", "enabled"); value) {
       log_configs_.enabled = std::string(*value) != "false";
     }
@@ -375,6 +404,16 @@ private:
         "read_committed");
   }
 
+  static bool parse_bool(const std::string &value, const char *message) {
+    if (value == "true") {
+      return true;
+    }
+    if (value == "false") {
+      return false;
+    }
+    throw std::invalid_argument(message);
+  }
+
   void save_file() {
     ini_.SetValue("kafka", "bootstrap.servers",
                   kafka_configs_.bootstrap_servers.c_str());
@@ -387,6 +426,8 @@ private:
                       kafka_configs_.fetch_max_bytes);
     ini_.SetValue("kafka", "isolation.level",
                   kafka_configs_.isolation_level.c_str());
+    ini_.SetBoolValue("kafka", "enable.idempotence",
+                      kafka_configs_.enable_idempotence);
     ini_.SetBoolValue("log", "enabled", log_configs_.enabled);
     ini_.SetValue("log", "path", log_configs_.path.c_str());
     ini_.SetValue("log", "debug", log_configs_.debug.c_str());

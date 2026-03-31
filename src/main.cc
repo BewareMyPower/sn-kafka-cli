@@ -86,6 +86,9 @@ int main(int argc, char *argv[]) noexcept(false) {
   const auto effective_fetch_max_bytes =
       std::max(configs.kafka_configs().fetch_max_bytes,
                configs.kafka_configs().fetch_message_max_bytes);
+  auto producer_rk_conf_map = rk_conf_map;
+  producer_rk_conf_map["enable.idempotence"] =
+      configs.kafka_configs().enable_idempotence ? "true" : "false";
   auto consumer_rk_conf_map = rk_conf_map;
   consumer_rk_conf_map["fetch.message.max.bytes"] =
       std::to_string(configs.kafka_configs().fetch_message_max_bytes);
@@ -108,7 +111,7 @@ int main(int argc, char *argv[]) noexcept(false) {
                          configs.log_configs(), true);
       groups.run(client.rk(), client.queue());
     } else if (produce.used_by_parent(program)) {
-      produce.run(rk_conf_map, configs.log_configs(),
+      produce.run(producer_rk_conf_map, configs.log_configs(),
                   program.present("--client-id"));
     } else if (consume.used_by_parent(program)) {
       consume.run(consumer_rk_conf_map, configs.log_configs(),

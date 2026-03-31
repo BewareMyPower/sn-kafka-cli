@@ -47,6 +47,7 @@ fetch.message.max.bytes = 52428800
 max.partition.fetch.bytes = 52428800
 fetch.max.bytes = 52428800
 isolation.level = read_uncommitted
+enable.idempotence = false
 ```
 
 To modify the config, you can edit the config file directly, whose path can be retrieved by the `./snctl-cpp --get-config` command.
@@ -72,6 +73,9 @@ Updated fetch.max.bytes to 52428800
 Updated config file /private/tmp/sncloud.ini
 $ ./snctl-cpp configs update --kafka-isolation-level read_committed
 Updated isolation.level to read_committed
+Updated config file /private/tmp/sncloud.ini
+$ ./snctl-cpp configs update --kafka-enable-idempotence true
+Updated enable.idempotence to true
 Updated config file /private/tmp/sncloud.ini
 ```
 
@@ -188,6 +192,10 @@ Produced 1002 messages (1002 msg/s), failures: 0
 
 Use `--message-size` to control the payload size in bytes. The default is 1024
 bytes.
+
+To enable idempotent producers, set `enable.idempotence = true` in the
+`[kafka]` section or run `snctl-cpp configs update --kafka-enable-idempotence
+true`. This setting is applied only to the `produce` command.
 
 ### Consume messages
 
