@@ -92,6 +92,12 @@ $ snctl-cpp topics create tp0
 Created topic "tp0" with 1 partition
 $ snctl-cpp topics create tp1 -p 5
 Created topic "tp1" with 5 partitions
+$ snctl-cpp topics create compacted-topic --topic-config cleanup.policy=compact
+Created topic "compacted-topic" with 1 partition
+$ snctl-cpp topics create tuned-topic \
+    --topic-config cleanup.policy=compact \
+    --topic-config min.cleanable.dirty.ratio=0.1
+Created topic "tuned-topic" with 1 partition
 ```
 
 #### Delete a topic

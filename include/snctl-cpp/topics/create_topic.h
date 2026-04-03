@@ -24,9 +24,13 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
-                         const std::string &topic, int num_partitions) {
+                         const std::string &topic, int num_partitions,
+                         const std::vector<std::pair<std::string, std::string>>
+                             &topic_configs = {}) {
   std::array<char, 512> errstr;
   auto *rk_topic = rd_kafka_NewTopic_new(topic.c_str(), num_partitions, 1,
                                          errstr.data(), errstr.size());
@@ -35,6 +39,15 @@ inline void create_topic(rd_kafka_t *rk, rd_kafka_queue_t *rkqu,
                              std::string(errstr.data()));
   }
   GUARD(rk_topic, rd_kafka_NewTopic_destroy);
+
+  for (const auto &[name, value] : topic_configs) {
+    if (auto err =
+            rd_kafka_NewTopic_set_config(rk_topic, name.c_str(), value.c_str());
+        err != RD_KAFKA_RESP_ERR_NO_ERROR) {
+      throw std::runtime_error("Failed to set topic config \"" + name + "=" +
+                               value + "\": " + rd_kafka_err2str(err));
+    }
+  }
 
   rd_kafka_CreateTopics(rk, &rk_topic, 1, nullptr, rkqu);
 

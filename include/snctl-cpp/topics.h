@@ -23,6 +23,9 @@
 #include <argparse/argparse.hpp>
 #include <librdkafka/rdkafka.h>
 #include <stdexcept>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 class Topics : public SubCommand {
 public:
@@ -33,6 +36,9 @@ public:
         .help("Number of partitions")
         .scan<'i', int>()
         .default_value(1);
+    create_command_.add_argument("--topic-config")
+        .help("Topic config in key=value format. Repeat to set multiple.")
+        .append();
 
     delete_command_.add_description("Delete a topic");
     delete_command_.add_argument("topic").help("Topic to delete").required();
@@ -60,7 +66,37 @@ public:
         throw std::invalid_argument(
             "Number of partitions must be greater than or equal to 0");
       }
-      create_topic(rk, rkqu, topic, partitions);
+      std::vector<std::pair<std::string, std::string>> topic_configs;
+      if (auto configs = create_command_.present<std::vector<std::string>>(
+              "--topic-config");
+          configs.has_value()) {
+        topic_configs.reserve(configs->size());
+        for (const auto &config : configs.value()) {
+          auto separator = config.find('=');
+          if (separator == std::string::npos) {
+            throw std::invalid_argument("Invalid --topic-config value \"" +
+                                        config + "\". Expected key=value");
+          }
+
+          std::string_view key{config.data(), separator};
+          std::string_view value{config.data() + separator + 1,
+                                 config.size() - separator - 1};
+          if (key.empty()) {
+            throw std::invalid_argument("Invalid --topic-config value \"" +
+                                        config +
+                                        "\". Config key must not be empty");
+          }
+          if (value.empty()) {
+            throw std::invalid_argument("Invalid --topic-config value \"" +
+                                        config +
+                                        "\". Config value must not be empty");
+          }
+
+          topic_configs.emplace_back(key, value);
+        }
+      }
+
+      create_topic(rk, rkqu, topic, partitions, topic_configs);
     } else if (is_subcommand_used(delete_command_)) {
       auto topic = delete_command_.get("topic");
       delete_topic(rk, rkqu, topic);
